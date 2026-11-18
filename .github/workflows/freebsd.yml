@@ -39,7 +39,17 @@ jobs:
           copyback: false
           prepare: |
             pkg install -y bash git curl pkgconf cmake python3 libxkbcommon wayland libX11 libXcursor libXrandr libXi libxcb mesa-libs vulkan-loader gtk3 fontconfig freetype2 alsa-lib
-            curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal
+            rustup_dir="$(mktemp -d "${TMPDIR:-/tmp}/rustup.XXXXXXXX")" || exit 1
+            rustup_init="$rustup_dir/rustup-init"
+            trap 'rm -f "$rustup_init"; rmdir "$rustup_dir"' 0
+            curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL -o "$rustup_init" \
+              'https://static.rust-lang.org/rustup/archive/1.29.3/x86_64-unknown-freebsd/rustup-init' || exit 1
+            if [ "$(sha256 -q "$rustup_init")" != '6c2fd1ace77dae186d34ad7b59d848d37d48f447cfc02c60c211e3503dc789cf' ]; then
+              printf '%s\n' 'Rustup installer checksum mismatch.' >&2
+              exit 1
+            fi
+            chmod 0700 "$rustup_init" || exit 1
+            "$rustup_init" -y --profile minimal
           run: |
             . "$HOME/.cargo/env"
             # The checkout is synced in under another owner; let tests that call git read it.
